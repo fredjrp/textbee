@@ -79,7 +79,9 @@ jobs:
           GOOGLE_SERVICES_JSON: ${{ matrix.variant == 'dev' && secrets.GOOGLE_SERVICES_JSON_DEV || secrets.GOOGLE_SERVICES_JSON_PROD }}
         run: |
           mkdir -p android/app/src/${{ matrix.variant }}
-          printf '%s' "$GOOGLE_SERVICES_JSON" > android/app/src/${{ matrix.variant }}/google-services.json
+          if [ -n "$GOOGLE_SERVICES_JSON" ]; then
+            printf '%s' "$GOOGLE_SERVICES_JSON" > android/app/src/${{ matrix.variant }}/google-services.json
+          fi
 
       - name: Build
         run: |
