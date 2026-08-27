@@ -69,10 +69,27 @@ jobs:
       - name: Grant execute permission for gradlew
         run: chmod +x android/gradlew
 
-      - name: Create debug keystore
+      - name: Create debug keystore (fallback)
         run: |
           mkdir -p ~/.android
           keytool -genkey -v -keystore ~/.android/debug.keystore -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
+
+      - name: Decode and set up release keystore
+        id: keystore
+        env:
+          RELEASE_KEYSTORE_BASE64: ${{ secrets.RELEASE_KEYSTORE_BASE64 }}
+        run: |
+          if [ -n "$RELEASE_KEYSTORE_BASE64" ]; then
+            echo "$RELEASE_KEYSTORE_BASE64" | base64 -d > /tmp/release.keystore
+            echo "RELEASE_KEYSTORE_PATH=/tmp/release.keystore" >> $GITHUB_ENV
+            echo "RELEASE_KEYSTORE_PASSWORD=${{ secrets.RELEASE_KEYSTORE_PASSWORD }}" >> $GITHUB_ENV
+            echo "RELEASE_KEY_ALIAS=${{ secrets.RELEASE_KEY_ALIAS }}" >> $GITHUB_ENV
+            echo "RELEASE_KEY_PASSWORD=${{ secrets.RELEASE_KEY_PASSWORD }}" >> $GITHUB_ENV
+            echo "has_release_key=true" >> $GITHUB_OUTPUT
+          else
+            echo "No release keystore secret found — APK will be signed with debug key"
+            echo "has_release_key=false" >> $GITHUB_OUTPUT
+          fi
 
       - name: Create google-services.json
         env:
@@ -83,15 +100,10 @@ jobs:
             printf '%s' "$GOOGLE_SERVICES_JSON" > android/app/src/${{ matrix.variant }}/google-services.json
           fi
 
-      - name: Build
+      - name: Build Release APK
         run: |
           cd android
-          ./gradlew assemble${{ matrix.variant }}Debug
-
-      # - name: Run Android tests
-      #   run: |
-      #     cd android
-      #     ./gradlew test${{ matrix.variant }}DebugUnitTest
+          ./gradlew assemble${{ matrix.variant }}Release
 
       - name: Sanitize ref name for artifact
         shell: bash
@@ -100,9 +112,9 @@ jobs:
       - name: Upload build artifacts
         uses: actions/upload-artifact@v7
         with:
-          name: textbee-${{ matrix.variant }}-build-${{ env.SAFE_REF_NAME }}-${{ github.sha }}.apk
-          path: android/app/build/outputs/apk/${{ matrix.variant }}/debug/app-${{ matrix.variant }}-debug.apk
-          retention-days: 7
+          name: textbee-${{ matrix.variant }}-release-${{ env.SAFE_REF_NAME }}-${{ github.sha }}.apk
+          path: android/app/build/outputs/apk/${{ matrix.variant }}/release/app-${{ matrix.variant }}-release.apk
+          retention-days: 30
 
   build-fork:
     name: Compile Android (fork PR)

@@ -29,14 +29,31 @@ android {
             keyAlias "androiddebugkey"
             keyPassword "android"
         }
+        release {
+            def keystoreFile = System.getenv("RELEASE_KEYSTORE_PATH")
+            def keystorePass = System.getenv("RELEASE_KEYSTORE_PASSWORD")
+            def keyAlias = System.getenv("RELEASE_KEY_ALIAS")
+            def keyPass = System.getenv("RELEASE_KEY_PASSWORD")
+            if (keystoreFile && keystorePass && keyAlias && keyPass) {
+                storeFile file(keystoreFile)
+                storePassword keystorePass
+                this.keyAlias keyAlias
+                keyPassword keyPass
+            } else {
+                // Fallback to debug signing if release credentials not available
+                storeFile file("${System.getenv("HOME")}/.android/debug.keystore")
+                storePassword "android"
+                this.keyAlias "androiddebugkey"
+                keyPassword "android"
+            }
+        }
     }
 
     buildTypes {
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
-            // TODO: Change to release signing config
-            signingConfig signingConfigs.debug
+            signingConfig signingConfigs.release
         }
         debug {
             minifyEnabled false
